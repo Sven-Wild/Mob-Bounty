@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import org.slf4j.Logger;
@@ -45,9 +46,9 @@ public final class MobBounty implements ModInitializer {
 			}
 		});
 
-		ServerPlayerEvents.JOIN.register(player -> {
+		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			if (bountyManager != null) {
-				bountyManager.onPlayerJoin(player);
+				bountyManager.onPlayerJoin(handler.getPlayer());
 			}
 		});
 
