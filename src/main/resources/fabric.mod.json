@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "mobbounty",
+  "version": "${version}",
+  "name": "Mob Bounty",
+  "description": "Every 5 minutes a random player is secretly marked as the bounty target. During that round every hostile mob hunts only the target while everyone else fights normally. Survive the round or lose a heart forever.",
+  "authors": [
+    "Mob Bounty"
+  ],
+  "contact": {},
+  "license": "MIT",
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "com.mobbounty.MobBounty"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.9",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
