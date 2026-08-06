@@ -1,11 +1,13 @@
 package com.mobbounty;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import org.slf4j.Logger;
@@ -52,6 +54,12 @@ public final class MobBounty implements ModInitializer {
 			}
 		});
 
+		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			if (bountyManager != null) {
+				bountyManager.onPlayerLeave(handler.getPlayer());
+			}
+		});
+
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
 			if (bountyManager != null) {
 				bountyManager.onPlayerRespawn(newPlayer);
@@ -70,5 +78,18 @@ public final class MobBounty implements ModInitializer {
 			}
 			return bountyManager.canDamagePlayer(player, source);
 		});
+
+		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
+				dispatcher.register(CommandManager.literal("bounty")
+						.then(CommandManager.literal("target")
+								.requires(source -> source.hasPermissionLevel(2))
+								.executes(context -> {
+									if (bountyManager == null) {
+										context.getSource().sendFeedback(() -> Text.literal("[MobBounty] Not running yet."), false);
+										return 0;
+									}
+									context.getSource().sendFeedback(bountyManager::getTargetStatusText, false);
+									return 1;
+								}))));
 	}
 }

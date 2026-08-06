@@ -21,13 +21,12 @@ The output jar is written to `build/libs/`. Drop it into a Fabric server's
 for Minecraft 1.21.1.
 
 > **Note:** this project was written in a sandboxed environment without
-> access to `maven.fabricmc.net`, so the build could not be compiled here to
-> verify it end-to-end. The code follows standard 1.21.1 Yarn mappings and
-> Fabric API conventions throughout. If `./gradlew build` reports a missing
-> method on your machine, the most likely spots (given API churn around the
-> 1.20.5/1.21 attribute rework) are the `EntityAttributeInstance.removeModifier`
-> / `addPersistentModifier` calls in `BountyManager.applyHeartLoss` — those
-> are one-line fixes if the exact overload name differs slightly.
+> access to `maven.fabricmc.net`, so most of it could not be compiled here to
+> verify it end-to-end (one real build on a normal machine already caught and
+> fixed one bad API reference — see git log). The code follows standard
+> 1.21.1 Yarn mappings and Fabric API conventions throughout. If
+> `./gradlew build` reports another missing method/field, paste the error —
+> these are one-line mapping fixes, not design problems.
 
 ## How it works
 
@@ -67,6 +66,35 @@ logged and broadcast to chat.
 
 Works with any number of players — with only one player online, the
 immunity rule is bypassed so the cycle keeps running instead of stalling.
+
+## Content/streaming features
+
+Added on top of the base mechanic specifically to make rounds watchable:
+
+- **Ceremony title card**: a bold red "⚠ BOUNTY SELECTION ⚠" title + an
+  ominous Wither-spawn-style sound plays for everyone during the 1-second
+  freeze.
+- **Hunt-start strike effect**: the moment the 5-minute hunt begins, a
+  lightning-style particle burst + thunder sound fires at the target's feet
+  — visible to anyone nearby, without announcing who it is in chat. If you
+  happen to be standing next to someone when the sky flashes... suspicious.
+- **Boss bar countdown**: a red "⚔ BOUNTY HUNT — 04:32 remaining" bar is
+  shown to everyone for the whole 5-minute round, ticking down live.
+- **Reinforcement waves**: instead of relying on ambient mob spawns, a wave
+  of 1–3 hostile mobs is summoned near the target every 15 seconds, using
+  tougher mobs (adding Skeletons and Creepers to the pool) in the back half
+  of the round — so the hunt has guaranteed, escalating action on camera.
+- **Elimination/survival spectacle**: matching title cards, sounds
+  (Wither-death boom for eliminations, level-up chime for survivals) and
+  particle bursts (a big explosion cloud / a firework + totem shower) fire
+  at the moment of death or survival, on top of the required chat messages.
+- **`/bounty target` command** (requires OP / permission level 2): privately
+  tells whoever runs it who the current target is and how much time is
+  left, without telling anyone else. Meant for the streamer/host to
+  narrate with dramatic irony, or for editors to check later. The target is
+  also logged (server console/log only, never chat) every time a new one is
+  picked, so you have a searchable record for editing without spoiling
+  anything for players.
 
 ## About "Essentials" compatibility
 
