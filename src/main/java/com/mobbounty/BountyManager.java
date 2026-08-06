@@ -2,7 +2,6 @@ package com.mobbounty;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
-import net.minecraft.entity.SpawnReason;
 import net.minecraft.entity.attribute.EntityAttributeInstance;
 import net.minecraft.entity.attribute.EntityAttributeModifier;
 import net.minecraft.entity.attribute.EntityAttributes;
@@ -303,7 +302,7 @@ public final class BountyManager {
 		int z = target.getBlockZ() + (int) Math.round(Math.sin(angle) * radius);
 		int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
 
-		HostileEntity mob = type.create(world, SpawnReason.EVENT);
+		HostileEntity mob = type.create(world);
 		if (mob == null) {
 			return;
 		}
