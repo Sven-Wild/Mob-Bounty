@@ -27,10 +27,13 @@ for Minecraft 1.21.1.
 > 1.21.1 Yarn mappings and Fabric API conventions throughout. If
 > `./gradlew build` reports another missing method/field, paste the error —
 > these are one-line mapping fixes, not design problems. The highest-risk
-> spots in the latest batch of changes are `ItemStack.setCustomName` and the
+> spots so far: `ItemStack.setCustomName` and the
 > `new StatusEffectInstance(StatusEffectInstance)` copy constructor in
-> `TrollItems.java` — both are long-standing convenience methods, but the
-> 1.20.5+ item-component rework touched adjacent APIs.
+> `TrollItems.java` (both long-standing convenience methods, but the
+> 1.20.5+ item-component rework touched adjacent APIs), plus two brand new
+> ones in this batch: `ItemStack.set(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, ...)`
+> for the glowing compass, and `ServerWorld.spawnParticles(ServerPlayerEntity, ...)`
+> (the single-viewer overload used to make the tracking trail private).
 
 ## How it works
 
@@ -128,9 +131,11 @@ their behavior is triggered by matching that name on right-click:
 - **Snitch Scroll** (Paper, one-time use) — broadcasts the current secret
   target's name to all chat. Blows the round wide open for a dramatic
   finish; consumed on use.
-- **Compass of Judgment** (Compass) — right-click (or just "use") to
-  privately see the current target's distance and direction from you.
-  Doesn't announce anything to anyone else.
+- **Compass of Judgment** (enchanted-glinting Compass) — right-click to draw
+  a particle trail from you toward the current target, up to 100 blocks,
+  visible **only to you** (sent as private particle packets, not broadcast).
+  The target gets no indication of who used it or where you are — they just
+  get an ominous private title: "Someone's onto you."
 - **Random Curse Wand** (End Rod) — right-click a player for a random goofy
   effect: Levitation, Nausea, Jump Boost X, Slowness VI, Blindness, or
   Weakness. Pure chaos, nothing lethal.

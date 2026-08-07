@@ -2,6 +2,7 @@ package com.mobbounty;
 
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
+import net.minecraft.component.DataComponentTypes;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.item.Item;
@@ -96,7 +97,7 @@ public final class TrollItems {
 				if (manager == null) {
 					return TypedActionResult.pass(stack);
 				}
-				manager.sendTargetDirection(user);
+				manager.pingTarget(user);
 				return TypedActionResult.success(stack);
 			}
 			return TypedActionResult.pass(stack);
@@ -104,16 +105,19 @@ public final class TrollItems {
 	}
 
 	public static void giveKit(ServerPlayerEntity player) {
-		player.giveItemStack(namedItem(Items.STICK, CURSE_STICK, Formatting.RED));
-		player.giveItemStack(namedItem(Items.BLAZE_ROD, SWAP_STICK, Formatting.LIGHT_PURPLE));
-		player.giveItemStack(namedItem(Items.PAPER, SNITCH_SCROLL, Formatting.YELLOW));
-		player.giveItemStack(namedItem(Items.COMPASS, COMPASS_OF_JUDGMENT, Formatting.AQUA));
-		player.giveItemStack(namedItem(Items.END_ROD, RANDOM_CURSE_WAND, Formatting.DARK_PURPLE));
+		player.giveItemStack(namedItem(Items.STICK, CURSE_STICK, Formatting.RED, false));
+		player.giveItemStack(namedItem(Items.BLAZE_ROD, SWAP_STICK, Formatting.LIGHT_PURPLE, false));
+		player.giveItemStack(namedItem(Items.PAPER, SNITCH_SCROLL, Formatting.YELLOW, false));
+		player.giveItemStack(namedItem(Items.COMPASS, COMPASS_OF_JUDGMENT, Formatting.AQUA, true));
+		player.giveItemStack(namedItem(Items.END_ROD, RANDOM_CURSE_WAND, Formatting.DARK_PURPLE, false));
 	}
 
-	private static ItemStack namedItem(Item item, String name, Formatting color) {
+	private static ItemStack namedItem(Item item, String name, Formatting color, boolean glint) {
 		ItemStack stack = new ItemStack(item);
 		stack.setCustomName(Text.literal(name).formatted(color));
+		if (glint) {
+			stack.set(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
+		}
 		return stack;
 	}
 

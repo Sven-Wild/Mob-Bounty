@@ -28,6 +28,7 @@ import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.Heightmap;
 
 import java.util.ArrayList;
@@ -246,34 +247,46 @@ public final class BountyManager {
 		broadcast(GOLD + "[BOUNTY] A snitch reveals... " + GOLD + target.getGameProfile().getName() + GOLD + " is the target!");
 	}
 
-	/** Troll item hook: privately tells the viewer the target's distance and direction. */
-	public void sendTargetDirection(ServerPlayerEntity viewer) {
+	/**
+	 * Troll item hook: draws a particle trail from the viewer toward the
+	 * target that only the viewer can see, and privately spooks the target
+	 * with a title so they know someone's tracking them (without saying who).
+	 */
+	public void pingTarget(ServerPlayerEntity viewer) {
 		ServerPlayerEntity target = getTargetPlayer();
 		if (phase != Phase.BOUNTY || target == null) {
 			viewer.sendMessage(Text.literal("[MobBounty] No active target to track.").formatted(Formatting.GRAY), false);
 			return;
 		}
-		if (target.getWorld() != viewer.getWorld()) {
+		if (!(viewer.getWorld() instanceof ServerWorld world) || target.getWorld() != world) {
 			viewer.sendMessage(Text.literal("[MobBounty] " + target.getGameProfile().getName()
 					+ " is in another dimension.").formatted(Formatting.AQUA), false);
 			return;
 		}
 
-		double dx = target.getX() - viewer.getX();
-		double dz = target.getZ() - viewer.getZ();
-		double distance = Math.sqrt(dx * dx + dz * dz);
-		viewer.sendMessage(Text.literal(String.format("[MobBounty] %s is %.0fm %s",
-				target.getGameProfile().getName(), distance, compassDirection(dx, dz))).formatted(Formatting.AQUA), false);
+		spawnGuidanceTrail(viewer, target, world);
+		sendTitleToPlayer(target, "§4§lSomeone's onto you", "§7...watch your back.", 5, 40, 10);
 	}
 
-	private static String compassDirection(double dx, double dz) {
-		double angle = Math.toDegrees(Math.atan2(dx, -dz));
-		if (angle < 0) {
-			angle += 360;
+	private void spawnGuidanceTrail(ServerPlayerEntity viewer, ServerPlayerEntity target, ServerWorld world) {
+		Vec3d start = viewer.getEyePos();
+		Vec3d end = target.getPos().add(0, 1.0, 0);
+		Vec3d diff = end.subtract(start);
+		double distance = diff.length();
+		if (distance < 1.0) {
+			return;
 		}
-		String[] directions = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
-		int index = (int) Math.round(angle / 45.0) % 8;
-		return directions[index];
+
+		double visibleDistance = Math.min(distance, 100.0);
+		Vec3d direction = diff.multiply(1.0 / distance);
+		int steps = (int) Math.max(10, Math.round(visibleDistance));
+		Vec3d step = direction.multiply(visibleDistance / steps);
+
+		Vec3d cursor = start;
+		for (int i = 0; i <= steps; i++) {
+			world.spawnParticles(viewer, ParticleTypes.END_ROD, true, cursor.x, cursor.y, cursor.z, 1, 0.0, 0.0, 0.0, 0.0);
+			cursor = cursor.add(step);
+		}
 	}
 
 	private void startSelectionPhase() {
@@ -483,10 +496,14 @@ public final class BountyManager {
 
 	private void sendTitleToAll(String title, String subtitle, int fadeIn, int stay, int fadeOut) {
 		for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-			player.networkHandler.sendPacket(new TitleFadeS2CPacket(fadeIn, stay, fadeOut));
-			player.networkHandler.sendPacket(new SubtitleS2CPacket(Text.literal(subtitle)));
-			player.networkHandler.sendPacket(new TitleS2CPacket(Text.literal(title)));
+			sendTitleToPlayer(player, title, subtitle, fadeIn, stay, fadeOut);
 		}
+	}
+
+	private void sendTitleToPlayer(ServerPlayerEntity player, String title, String subtitle, int fadeIn, int stay, int fadeOut) {
+		player.networkHandler.sendPacket(new TitleFadeS2CPacket(fadeIn, stay, fadeOut));
+		player.networkHandler.sendPacket(new SubtitleS2CPacket(Text.literal(subtitle)));
+		player.networkHandler.sendPacket(new TitleS2CPacket(Text.literal(title)));
 	}
 
 	private void playSoundToAll(SoundEvent sound, float volume, float pitch) {
