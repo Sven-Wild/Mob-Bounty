@@ -74,6 +74,21 @@ public final class BountyData {
 		heartsLost.merge(uuid.toString(), 1, Integer::sum);
 	}
 
+	public void decrementHeartsLost(UUID uuid) {
+		int current = getHeartsLost(uuid);
+		if (current > 0) {
+			heartsLost.put(uuid.toString(), current - 1);
+		}
+	}
+
+	public void setHeartsLost(UUID uuid, int hearts) {
+		if (hearts <= 0) {
+			heartsLost.remove(uuid.toString());
+		} else {
+			heartsLost.put(uuid.toString(), hearts);
+		}
+	}
+
 	public UUID getImmunePlayer() {
 		return immunePlayer == null ? null : UUID.fromString(immunePlayer);
 	}

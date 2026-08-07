@@ -43,7 +43,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class BountyManager {
 
 	private static final int SELECTION_DURATION_TICKS = 20; // 1 second
-	private static final int BOUNTY_DURATION_TICKS = 20 * 60 * 5; // 5 minutes
+	private static final int DEFAULT_BOUNTY_DURATION_TICKS = 20 * 60 * 5; // 5 minutes
 	private static final int STARTUP_DELAY_TICKS = 100; // 5 seconds, lets players finish logging in
 	private static final int REINFORCEMENT_INTERVAL_TICKS = 20 * 15; // every 15 seconds
 	private static final int REINFORCEMENT_INITIAL_DELAY_TICKS = 20 * 5; // grace period at hunt start
@@ -72,6 +72,8 @@ public final class BountyManager {
 	private Phase phase = Phase.WAITING;
 	private int timer = STARTUP_DELAY_TICKS;
 	private int reinforcementTimer;
+	private int bountyDurationTicks = DEFAULT_BOUNTY_DURATION_TICKS;
+	private boolean paused;
 	private UUID targetUuid;
 
 	public BountyManager(MinecraftServer server) {
@@ -111,6 +113,10 @@ public final class BountyManager {
 	}
 
 	public void tick() {
+		if (paused) {
+			return;
+		}
+
 		if (phase == Phase.BOUNTY) {
 			ServerPlayerEntity target = getTargetPlayer();
 			enforceMobTargeting(target);
@@ -125,6 +131,10 @@ public final class BountyManager {
 			return;
 		}
 
+		advancePhase();
+	}
+
+	private void advancePhase() {
 		switch (phase) {
 			case WAITING -> startSelectionPhase();
 			case SELECTION -> startBountyPhase();
@@ -174,6 +184,98 @@ public final class BountyManager {
 				+ " (" + formatTime(timer / 20) + " remaining)");
 	}
 
+	/** Admin override: force a specific player to become the target right now. */
+	public void forceSetTarget(ServerPlayerEntity player) {
+		targetUuid = player.getUuid();
+		if (phase == Phase.BOUNTY) {
+			strikeStartEffect(player);
+		} else {
+			startBountyPhase();
+		}
+		MobBounty.LOGGER.info("[MobBounty] (admin) Target manually set to {}", player.getGameProfile().getName());
+	}
+
+	/** Admin override: instantly end the current phase (ceremony or hunt) and move on. */
+	public void skipPhase() {
+		advancePhase();
+	}
+
+	/** Admin override: change how long bounty hunts last; shortens the current hunt if already running. */
+	public void setBountyDurationSeconds(int seconds) {
+		bountyDurationTicks = Math.max(1, seconds) * 20;
+		if (phase == Phase.BOUNTY) {
+			timer = Math.min(timer, bountyDurationTicks);
+		}
+	}
+
+	/** Admin override: undo one permanent heart loss. */
+	public void giveHeartBack(ServerPlayerEntity player) {
+		data.decrementHeartsLost(player.getUuid());
+		data.save(server);
+		applyHeartLoss(player);
+	}
+
+	/** Admin override: set a player's permanent hearts-lost count directly. */
+	public void setHeartsLost(ServerPlayerEntity player, int hearts) {
+		data.setHeartsLost(player.getUuid(), hearts);
+		data.save(server);
+		applyHeartLoss(player);
+	}
+
+	/** Admin override: drop a wave of hostile mobs near a player on demand. */
+	public void spawnWaveOn(ServerPlayerEntity player, int count) {
+		if (!(player.getWorld() instanceof ServerWorld world)) {
+			return;
+		}
+		for (int i = 0; i < count; i++) {
+			EntityType<? extends HostileEntity> type = LATE_MOB_POOL.get(ThreadLocalRandom.current().nextInt(LATE_MOB_POOL.size()));
+			spawnMobNear(world, player, type);
+		}
+	}
+
+	public void setPaused(boolean paused) {
+		this.paused = paused;
+	}
+
+	/** Troll item hook: publicly outs the current target in chat. */
+	public void revealTargetPublicly() {
+		ServerPlayerEntity target = getTargetPlayer();
+		if (phase != Phase.BOUNTY || target == null) {
+			return;
+		}
+		broadcast(GOLD + "[BOUNTY] A snitch reveals... " + GOLD + target.getGameProfile().getName() + GOLD + " is the target!");
+	}
+
+	/** Troll item hook: privately tells the viewer the target's distance and direction. */
+	public void sendTargetDirection(ServerPlayerEntity viewer) {
+		ServerPlayerEntity target = getTargetPlayer();
+		if (phase != Phase.BOUNTY || target == null) {
+			viewer.sendMessage(Text.literal("[MobBounty] No active target to track.").formatted(Formatting.GRAY), false);
+			return;
+		}
+		if (target.getWorld() != viewer.getWorld()) {
+			viewer.sendMessage(Text.literal("[MobBounty] " + target.getGameProfile().getName()
+					+ " is in another dimension.").formatted(Formatting.AQUA), false);
+			return;
+		}
+
+		double dx = target.getX() - viewer.getX();
+		double dz = target.getZ() - viewer.getZ();
+		double distance = Math.sqrt(dx * dx + dz * dz);
+		viewer.sendMessage(Text.literal(String.format("[MobBounty] %s is %.0fm %s",
+				target.getGameProfile().getName(), distance, compassDirection(dx, dz))).formatted(Formatting.AQUA), false);
+	}
+
+	private static String compassDirection(double dx, double dz) {
+		double angle = Math.toDegrees(Math.atan2(dx, -dz));
+		if (angle < 0) {
+			angle += 360;
+		}
+		String[] directions = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
+		int index = (int) Math.round(angle / 45.0) % 8;
+		return directions[index];
+	}
+
 	private void startSelectionPhase() {
 		phase = Phase.SELECTION;
 		timer = SELECTION_DURATION_TICKS;
@@ -196,7 +298,7 @@ public final class BountyManager {
 
 	private void startBountyPhase() {
 		phase = Phase.BOUNTY;
-		timer = BOUNTY_DURATION_TICKS;
+		timer = bountyDurationTicks;
 		reinforcementTimer = REINFORCEMENT_INITIAL_DELAY_TICKS;
 
 		for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
@@ -285,7 +387,7 @@ public final class BountyManager {
 			return;
 		}
 
-		double elapsedFraction = 1.0 - ((double) timer / BOUNTY_DURATION_TICKS);
+		double elapsedFraction = 1.0 - ((double) timer / bountyDurationTicks);
 		int waveSize = 1 + (int) Math.floor(Math.min(elapsedFraction, 1.0) * 2.0); // 1..3, grows over the round
 		List<EntityType<? extends HostileEntity>> pool = elapsedFraction < 0.5 ? EARLY_MOB_POOL : LATE_MOB_POOL;
 
@@ -311,7 +413,7 @@ public final class BountyManager {
 	}
 
 	private void updateBossBar() {
-		float percent = Math.max(0f, Math.min(1f, (float) timer / BOUNTY_DURATION_TICKS));
+		float percent = Math.max(0f, Math.min(1f, (float) timer / bountyDurationTicks));
 		bossBar.setPercent(percent);
 		bossBar.setName(Text.literal("§c§l⚔ BOUNTY HUNT §r§7- §f" + formatTime(timer / 20) + " remaining"));
 	}

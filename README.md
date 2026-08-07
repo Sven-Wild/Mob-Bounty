@@ -22,11 +22,15 @@ for Minecraft 1.21.1.
 
 > **Note:** this project was written in a sandboxed environment without
 > access to `maven.fabricmc.net`, so most of it could not be compiled here to
-> verify it end-to-end (one real build on a normal machine already caught and
-> fixed one bad API reference — see git log). The code follows standard
+> verify it end-to-end (two real builds on a normal machine already caught
+> and fixed two bad API references — see git log). The code follows standard
 > 1.21.1 Yarn mappings and Fabric API conventions throughout. If
 > `./gradlew build` reports another missing method/field, paste the error —
-> these are one-line mapping fixes, not design problems.
+> these are one-line mapping fixes, not design problems. The highest-risk
+> spots in the latest batch of changes are `ItemStack.setCustomName` and the
+> `new StatusEffectInstance(StatusEffectInstance)` copy constructor in
+> `TrollItems.java` — both are long-standing convenience methods, but the
+> 1.20.5+ item-component rework touched adjacent APIs.
 
 ## How it works
 
@@ -95,6 +99,44 @@ Added on top of the base mechanic specifically to make rounds watchable:
   also logged (server console/log only, never chat) every time a new one is
   picked, so you have a searchable record for editing without spoiling
   anything for players.
+
+## Admin/testing commands
+
+All of these require OP (permission level 2):
+
+| Command | What it does |
+|---|---|
+| `/bounty target` | Privately shows you the current target + time left. |
+| `/bounty settarget <player>` | Forces that player to become the target immediately, skipping the RNG. |
+| `/bounty skip` | Instantly ends the current phase (ceremony or hunt) and moves to the next — no waiting 5 real minutes while testing. |
+| `/bounty setduration <seconds>` | Changes the hunt length live; shortens an already-running hunt if the new value is smaller. |
+| `/bounty giveheart <player>` | Restores one permanently-lost heart. |
+| `/bounty setheartslost <player> <amount>` | Sets a player's permanent hearts-lost count directly. |
+| `/bounty wave <player> [count]` | Manually drops a wave of hostile mobs (default 3, max 10) near that player right now. |
+| `/bounty pause` / `/bounty resume` | Freezes/unfreezes the whole cycle — timers, mob targeting, boss bar, everything. Handy before explaining the rules to friends. |
+| `/bounty trollkit` | Gives the executing player the troll item kit (see below). |
+
+## Troll items (`/bounty trollkit`)
+
+Plain vanilla items with a custom name — no resource pack or texture needed,
+their behavior is triggered by matching that name on right-click:
+
+- **Curse Stick** (Stick) — right-click a player to instantly make them the
+  target, mid-round, no waiting for the next ceremony.
+- **Swap Stick** (Blaze Rod) — right-click a player to instantly
+  teleport-swap positions with them (same dimension only).
+- **Snitch Scroll** (Paper, one-time use) — broadcasts the current secret
+  target's name to all chat. Blows the round wide open for a dramatic
+  finish; consumed on use.
+- **Compass of Judgment** (Compass) — right-click (or just "use") to
+  privately see the current target's distance and direction from you.
+  Doesn't announce anything to anyone else.
+- **Random Curse Wand** (End Rod) — right-click a player for a random goofy
+  effect: Levitation, Nausea, Jump Boost X, Slowness VI, Blindness, or
+  Weakness. Pure chaos, nothing lethal.
+
+Hand these out to whoever's hosting/testing — they're not tied to being the
+bounty target or anything, just OP-gated via the command that grants them.
 
 ## About "Essentials" compatibility
 
